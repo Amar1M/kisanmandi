@@ -1,0 +1,81 @@
+{{- if .Values.ingest.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "kisanmandi.fullname" . }}-ingest
+  labels:
+    {{- include "kisanmandi.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ingest
+spec:
+  # 13:00 UTC = 18:30 IST. CronJob schedules are always UTC — there is no
+  # timezone field, and forgetting that is a classic bug.
+  schedule: {{ .Values.ingest.schedule | quote }}
+
+  # Forbid, not Allow: two overlapping ingests would fight over the same rows.
+  # (The pipeline is idempotent, so it would not corrupt anything — but it would
+  # waste API quota and make the logs confusing.)
+  concurrencyPolicy: {{ .Values.ingest.concurrencyPolicy }}
+
+  successfulJobsHistoryLimit: {{ .Values.ingest.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.ingest.failedJobsHistoryLimit }}
+  startingDeadlineSeconds: {{ .Values.ingest.startingDeadlineSeconds }}
+
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: {{ .Values.ingest.activeDeadlineSeconds }}
+      backoffLimit: {{ .Values.ingest.backoffLimit }}
+      # Clean up finished pods automatically — otherwise a nightly job slowly
+      # fills your 200 GB free disk with dead pods.
+      ttlSecondsAfterFinished: 604800   # 7 days
+
+      template:
+        metadata:
+          labels:
+            {{- include "kisanmandi.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: ingest
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            fsGroup: 1001
+          containers:
+            - name: ingest
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args:
+                {{- toYaml .Values.ingest.args | nindent 16 }}
+
+              env:
+                {{- include "kisanmandi.commonEnv" . | nindent 16 }}
+              envFrom:
+                - secretRef:
+                    name: {{ .Values.secrets.existingSecret }}
+
+              resources:
+                {{- toYaml .Values.ingest.resources | nindent 16 }}
+
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+
+              volumeMounts:
+                - name: data
+                  mountPath: /app/data
+
+          volumes:
+            - name: data
+              {{- if .Values.persistence.enabled }}
+              persistentVolumeClaim:
+                claimName: {{ include "kisanmandi.fullname" . }}-data
+              {{- else }}
+              emptyDir: {}
+              {{- end }}
+
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

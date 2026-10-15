@@ -1,0 +1,22 @@
+{{- if .Values.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kisanmandi.fullname" . }}-data
+  labels:
+    {{- include "kisanmandi.labels" . | nindent 4 }}
+  annotations:
+    # Keeps the volume when you `helm uninstall`. The raw landing zone is
+    # irreplaceable — re-fetching months of history costs API quota and time.
+    # Deleting it by accident is the single most expensive mistake available here.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+{{- end }}

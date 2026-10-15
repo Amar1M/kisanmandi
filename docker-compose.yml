@@ -1,0 +1,69 @@
+# Local development stack.
+#
+# Deliberately minimal: Postgres + the API + a one-shot ingest job.
+# On the Oracle Always Free VM the same shape runs under k3s or plain systemd.
+#
+#   make up     # start
+#   make logs   # watch
+#   make down   # stop and remove volumes
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kisanmandi
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: kisanmandi
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kisanmandi"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    image: kisanmandi:local
+    command: kisanmandi serve --host 0.0.0.0 --port 8000
+    environment:
+      DATABASE_URL: postgresql+psycopg://kisanmandi:localdev@db:5432/kisanmandi
+      DATA_DIR: /app/data
+      LANDING_BACKEND: local
+      LANDING_LOCAL_DIR: /app/data/landing
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - appdata:/app/data
+
+  # One-shot job. Run it by hand:
+  #   docker compose run --rm ingest kisanmandi ingest --state Karnataka
+  # In production this is a k8s CronJob or a systemd timer, not a long-lived service.
+  ingest:
+    build: .
+    image: kisanmandi:local
+    profiles: ["jobs"]
+    command: kisanmandi ingest
+    environment:
+      DATABASE_URL: postgresql+psycopg://kisanmandi:localdev@db:5432/kisanmandi
+      DATA_DIR: /app/data
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - appdata:/app/data
+
+volumes:
+  pgdata:
+  appdata:

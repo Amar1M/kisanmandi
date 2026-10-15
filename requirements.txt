@@ -1,0 +1,30 @@
+# KisanMandi — dependencies
+# Pinned loosely: this is a student project meant to be reproducible for 12 weeks,
+# not a locked production build. Run `pip freeze > requirements.lock.txt` before
+# the final submission so your grader gets exactly what you tested.
+
+# --- core ingest / validation ---
+httpx==0.28.1
+pydantic==2.13.5
+tenacity==9.0.0
+python-dotenv==1.0.1
+
+# --- storage ---
+SQLAlchemy==2.1.4
+psycopg[binary]==3.2.3        # Postgres driver (only needed when you point at Oracle/Neon)
+
+# --- api ---
+fastapi==0.143.2
+uvicorn[standard]==0.32.1
+
+# --- object storage (Cloudflare R2 / S3-compatible landing zone) ---
+boto3==1.35.90
+
+# --- testing ---
+pytest==9.0.3
+respx==0.23.1                 # mock HTTP so tests never hit the real API
+pytest-cov==6.0.0
+
+# --- forecasting (optional - the baseline forecaster in src/ is dependency-free) ---
+# prophet==1.1.6              # uncomment in week 5+ if you want a heavier model
+# statsmodels==0.14.4

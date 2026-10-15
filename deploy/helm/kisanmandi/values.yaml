@@ -1,0 +1,164 @@
+# Default values. Override per environment:
+#   helm install kisanmandi ./deploy/helm/kisanmandi -f values-prod.yaml
+#
+# Sized for a 24 GB Oracle Always Free VM running k3s. The whole chart uses
+# roughly 250 MB of RAM, which leaves plenty for Postgres and monitoring.
+
+image:
+  repository: ghcr.io/YOUR-USERNAME/kisanmandi
+  # Never use `latest` in Kubernetes: it makes rollbacks ambiguous. Pin to a
+  # tag or, better, a digest so you know exactly what is running.
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# ---------------------------------------------------------------------------
+# API
+# ---------------------------------------------------------------------------
+api:
+  enabled: true
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 384Mi
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+
+  # Liveness asks "is this process alive?". Readiness asks "should it receive
+  # traffic?". Getting these confused causes restart loops when the database
+  # is briefly unavailable. The API can be alive but not ready.
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    failureThreshold: 3
+
+# ---------------------------------------------------------------------------
+# Scheduled ingest — the actual job this project is built around
+# ---------------------------------------------------------------------------
+ingest:
+  enabled: true
+
+  # 13:00 UTC = 18:30 IST. The Agmarknet feed fills through the Indian working
+  # day; pulling earlier collects a partial day, which becomes a permanent gap.
+  schedule: "0 13 * * *"
+
+  # Never run two ingests at once. Without this, a slow run and the next night's
+  # run can overlap and fight over the same rows.
+  concurrencyPolicy: Forbid
+
+  # Keep some history so you can inspect failures, but not forever.
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+
+  # If the VM was off at 13:00, this far behind is still worth running.
+  startingDeadlineSeconds: 3600
+
+  # A slow public API plus retries. Fail rather than hang forever.
+  activeDeadlineSeconds: 3600
+  backoffLimit: 1
+
+  args: ["ingest"]
+  # e.g. to limit to one state:
+  # args: ["ingest", "--state", "Karnataka"]
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+# ---------------------------------------------------------------------------
+# Configuration and secrets
+# ---------------------------------------------------------------------------
+config:
+  # Non-secret settings. Anything with a credential belongs in `secrets` below.
+  databaseUrl: "postgresql+psycopg://kisanmandi:CHANGE_ME@postgres:5432/kisanmandi"
+  dataDir: "/app/data"
+  landingBackend: "local"
+  landingLocalDir: "/app/data/landing"
+  pageSize: "1000"
+  maxPages: "40"
+  minRequestIntervalSeconds: "1.0"
+  stalenessDays: "7"
+  minPlausiblePrice: "10"
+  maxPlausiblePrice: "100000"
+  forecastHorizonDays: "7"
+  holdThresholdPct: "3.0"
+  transportCostPerQuintal: "150"
+  minHistoryPoints: "21"
+
+# ---------------------------------------------------------------------------
+# Secrets
+#
+# DO NOT put passwords here. `existingSecret` points at a Secret you create
+# separately, so credentials never live in a values file that gets committed.
+#
+#   kubectl create secret generic kisanmandi-secrets \
+#     --namespace kisanmandi \
+#     --from-literal=DATA_GOV_API_KEY='your-key' \
+#     --from-literal=DATABASE_URL='postgresql+psycopg://...'
+#
+# Later, replace this with External Secrets Operator + SOPS if you want the
+# secret to be reproducible too. Explain that trade-off in docs/decisions.md.
+# ---------------------------------------------------------------------------
+secrets:
+  existingSecret: kisanmandi-secrets
+
+persistence:
+  # The raw landing zone is the one thing here that is genuinely irreplaceable
+  # (you cannot cheaply re-fetch months of history). In production point this at
+  # Cloudflare R2 instead (landingBackend: s3) so it survives the VM dying.
+  enabled: true
+  size: 5Gi
+  accessMode: ReadWriteOnce
+  storageClass: "local-path"   # k3s default. Change if you install another.
+
+# ---------------------------------------------------------------------------
+# Ingress (optional — you can also use Cloudflare Tunnel, which needs no ingress)
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: traefik          # k3s ships Traefik
+  annotations: {}
+  hosts:
+    - host: api.yourdomain.me
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: kisanmandi-tls
+  #    hosts:
+  #      - api.yourdomain.me
+
+# ---------------------------------------------------------------------------
+# Scheduling hints
+# ---------------------------------------------------------------------------
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Spread across nodes if you ever add a second one. Harmless single-node.
+podAntiAffinity:
+  enabled: false

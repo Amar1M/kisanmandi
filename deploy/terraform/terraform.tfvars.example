@@ -1,0 +1,43 @@
+# Copy to terraform.tfvars and fill in. NEVER commit terraform.tfvars.
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# The API key values come from the OCI console:
+#   Profile menu (top right) -> My profile -> API keys -> Add API key
+#   Choose "Generate API key pair", download the private key, then view the
+#   configuration file preview — it contains every OCID and the fingerprint.
+
+tenancy_ocid     = "ocid1.tenancy.oc1..aaaaaaa..."
+user_ocid        = "ocid1.user.oc1..aaaaaaa..."
+fingerprint      = "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
+private_key_path = "~/.oci/oci_api_key.pem"
+
+# Use your tenancy OCID here if you have not created a separate compartment.
+compartment_ocid = "ocid1.tenancy.oc1..aaaaaaa..."
+
+region      = "ap-mumbai-1"
+project_name = "kisanmandi"
+
+# Always Free limits — do not raise these, your card gets charged if you do.
+instance_ocpus     = 4
+instance_memory_gb = 24
+boot_volume_gb     = 100
+
+# ---------------------------------------------------------------------------
+# SECURITY: restrict SSH to your own IP.
+# Find yours with:  curl -s https://ifconfig.me
+# Then set it as a /32:
+#   admin_cidr = "203.0.113.42/32"
+# Leaving the default 0.0.0.0/0 means the whole internet can attempt SSH.
+# fail2ban helps, but not exposing the port at all is better.
+# ---------------------------------------------------------------------------
+admin_cidr = "0.0.0.0/0"
+
+ssh_public_key_path = "~/.ssh/id_ed25519.pub"
+timezone            = "Asia/Kolkata"
+
+# If you hit "Out of capacity" for ARM:
+#   1. try availability_domain_index = 1, then 2
+#   2. try a different region (ap-singapore-1 and eu-frankfurt-1 are often freer)
+#   3. as a last resort, upgrade to Pay As You Go — Always Free resources stay
+#      free, but you draw from a larger capacity pool. SET A BILLING ALARM FIRST.
+availability_domain_index = 0

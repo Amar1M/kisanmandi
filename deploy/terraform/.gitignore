@@ -1,0 +1,17 @@
+# Never commit these.
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+
+# State contains resource IDs and can contain secrets. Keep it out of git.
+# For a solo student project, local state is fine — document that decision.
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+
+# OCI API keys
+*.pem
+oci_api_key*

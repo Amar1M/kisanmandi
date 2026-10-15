@@ -1,0 +1,85 @@
+name: Daily ingest
+
+# Scheduled data collection. GitHub Actions cron is UTC-only, so 12:30 UTC is
+# 18:00 IST. The Agmarknet feed fills through the IST day — pulling early means
+# pulling incomplete data. Comment on your schedule explaining *why* the time is
+# what it is; "it worked when I set it" is not a reason.
+on:
+  schedule:
+    - cron: "30 12 * * *"      # 18:00 IST daily
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Fetch and validate without writing anything"
+        type: boolean
+        default: false
+      state:
+        description: "Limit to one state (e.g. Karnataka). Blank = all India"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    name: Ingest Agmarknet prices
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Run ingest
+        env:
+          DATA_GOV_API_KEY: ${{ secrets.DATA_GOV_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          LANDING_BACKEND: s3
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+          S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          PAGE_SIZE: "1000"
+          MAX_PAGES: "40"
+          MIN_REQUEST_INTERVAL_SECONDS: "1.0"
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.state }}" ]; then ARGS="$ARGS --state ${{ inputs.state }}"; fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          kisanmandi $ARGS ingest
+
+      # The quality report is the durable output. Uploading it every day means
+      # your published data-quality trend is a real artifact, not a one-off claim.
+      - name: Upload quality report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-report-${{ github.run_number }}
+          path: |
+            data/reports/quality-latest.json
+            data/reports/quality-latest.md
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## KisanMandi daily ingest"
+            echo ""
+            echo "Run: \`${{ github.run_number }}\` · Trigger: \`${{ github.event_name }}\`"
+            echo ""
+            if [ -f data/reports/quality-latest.md ]; then
+              head -12 data/reports/quality-latest.md
+            else
+              echo "_No quality report was produced — check the logs above._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

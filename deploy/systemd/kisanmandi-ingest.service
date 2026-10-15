@@ -1,0 +1,47 @@
+# /etc/systemd/system/kisanmandi-ingest.service
+#
+# Install:
+#   sudo cp deploy/systemd/kisanmandi-ingest.service /etc/systemd/system/
+#   sudo cp deploy/systemd/kisanmandi-ingest.timer   /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now kisanmandi-ingest.timer
+#
+# Test it immediately rather than waiting for 13:00 UTC:
+#   sudo systemctl start kisanmandi-ingest.service
+#   journalctl -u kisanmandi-ingest -n 50 --no-pager
+
+[Unit]
+Description=KisanMandi daily mandi price ingest
+Documentation=https://github.com/YOUR-USERNAME/kisanmandi
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/kisanmandi
+EnvironmentFile=/home/ubuntu/kisanmandi/.env
+
+# The actual work. Keep it to one command so a failure is unambiguous.
+ExecStart=/home/ubuntu/kisanmandi/.venv/bin/kisanmandi ingest
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kisanmandi
+
+# Hardening. A scheduled job that reads a public API needs none of this.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# ...except the two paths it genuinely writes to:
+ReadWritePaths=/home/ubuntu/kisanmandi-data
+
+# The API can be slow; give it an hour, then fail rather than hang forever.
+TimeoutStartSec=3600
+# Never let a stuck run block tomorrow's.
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

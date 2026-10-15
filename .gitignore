@@ -1,0 +1,38 @@
+# --- secrets: never commit these ---
+.env
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# --- data: reproducible from the API, so don't bloat the repo ---
+data/
+*.db
+*.sqlite
+*.sqlite3
+landing/
+
+# --- python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.Python
+
+# --- testing / tooling ---
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# --- editors / os ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

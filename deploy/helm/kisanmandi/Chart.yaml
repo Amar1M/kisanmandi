@@ -1,0 +1,22 @@
+apiVersion: v2
+name: kisanmandi
+description: Mandi price intelligence for Indian farmers — API and scheduled ingest
+type: application
+
+# Chart version: bump when you change the templates.
+# App version: the kisanmandi release this deploys.
+version: 0.1.0
+appVersion: "0.1.0"
+
+keywords:
+  - agriculture
+  - agmarknet
+  - india
+  - data-engineering
+
+maintainers:
+  - name: Amarnath Reddy
+    url: https://github.com/YOUR-USERNAME/kisanmandi
+
+annotations:
+  category: DataEngineering

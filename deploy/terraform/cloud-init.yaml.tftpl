@@ -1,0 +1,88 @@
+#cloud-config
+# Baseline configuration for the KisanMandi VM.
+#
+# This is the "golden image" idea in miniature: the machine configures itself,
+# so it is reproducible. If the VM dies, `terraform apply` gives you an identical
+# one -- which is the entire point of infrastructure as code.
+
+package_update: true
+package_upgrade: true
+
+timezone: ${timezone}
+
+packages:
+  - git
+  - curl
+  - ufw
+  - fail2ban
+  - unattended-upgrades
+  - postgresql
+  - postgresql-contrib
+  - python3-venv
+  - python3-pip
+  - jq
+
+write_files:
+  # ---------------------------------------------------------------------------
+  # Firewall. Oracle has a *separate* network security list (managed in Terraform)
+  # and this host-level firewall. Both must allow a port. Forgetting that is the
+  # single most common "why can't I reach my server" problem on OCI.
+  # ---------------------------------------------------------------------------
+  - path: /etc/ufw/user.rules.d/kisanmandi
+    content: |
+      ### KisanMandi rules
+      -A ufw-user-input -p tcp --dport 22 -j ACCEPT
+      -A ufw-user-input -p tcp --dport 80 -j ACCEPT
+      -A ufw-user-input -p tcp --dport 443 -j ACCEPT
+    permissions: "0644"
+
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+runcmd:
+  # --- Docker (native engine, not Docker Desktop) ---
+  - curl -fsSL https://get.docker.com | sh
+  - usermod -aG docker ubuntu
+  - systemctl enable --now docker
+
+  # --- PostgreSQL: listen on localhost only ---
+  # The API connects over the loopback interface. Nothing outside this VM should
+  # ever be able to reach the database.
+  - systemctl enable --now postgresql
+  - |
+    sudo -u postgres psql -c "CREATE USER kisanmandi WITH PASSWORD 'CHANGE-ME-IN-PROD';" || true
+    sudo -u postgres psql -c "CREATE DATABASE kisanmandi OWNER kisanmandi;" || true
+
+  # --- Firewall ---
+  - ufw --force reset
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+
+  # --- fail2ban: you are on the public internet, bots will find you ---
+  - systemctl enable --now fail2ban
+
+  # --- Working directories ---
+  - mkdir -p /home/ubuntu/kisanmandi-data/landing
+  - mkdir -p /home/ubuntu/backups
+  - chown -R ubuntu:ubuntu /home/ubuntu/kisanmandi-data /home/ubuntu/backups
+
+  # --- A marker so you can confirm cloud-init actually completed ---
+  - echo "KisanMandi baseline complete: $(date -u +%Y-%m-%dT%H:%M:%SZ)" > /home/ubuntu/CLOUD_INIT_DONE
+  - chown ubuntu:ubuntu /home/ubuntu/CLOUD_INIT_DONE
+
+final_message: |
+  KisanMandi VM is ready after $UPTIME seconds.
+
+  Next:
+    1. cloud-init status --wait
+    2. Get an API key at https://data.gov.in/user/register
+    3. Clone the repo and set up .env
+
+  IMPORTANT: change the Postgres password set above before putting anything real
+  in this database. It is a known placeholder, not a secret.

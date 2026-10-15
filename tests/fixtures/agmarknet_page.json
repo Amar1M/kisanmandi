@@ -1,0 +1,45 @@
+{
+  "status": "ok",
+  "total": "3",
+  "count": "3",
+  "limit": "100",
+  "offset": "0",
+  "records": [
+    {
+      "state": "Karnataka",
+      "district": "Bengaluru",
+      "market": "Binny Mill (F&V), Bangalore",
+      "commodity": "Tomato",
+      "variety": "Local",
+      "grade": "FAQ",
+      "arrival_date": "14/10/2026",
+      "min_price": "1200",
+      "max_price": "2400",
+      "modal_price": "1800"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Bengaluru",
+      "market": "Binny Mill (F&V), Bangalore",
+      "commodity": "Tomato",
+      "variety": "Hybrid",
+      "grade": "FAQ",
+      "arrival_date": "14/10/2026",
+      "min_price": "1500",
+      "max_price": "2800",
+      "modal_price": "2100"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Kolar",
+      "market": "Kolar",
+      "commodity": "Tomato",
+      "variety": "Local",
+      "grade": "FAQ",
+      "arrival_date": "14/10/2026",
+      "min_price": "900",
+      "max_price": "1900",
+      "modal_price": "1400"
+    }
+  ]
+}

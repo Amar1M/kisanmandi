@@ -1,0 +1,29 @@
+# /etc/systemd/system/kisanmandi-ingest.timer
+#
+# Why 13:00 UTC (18:30 IST) and not midnight: the Agmarknet feed fills *through*
+# the Indian working day. Pull it too early and you collect a partial day, which
+# then becomes a permanent gap in your history. If you are going to explain a
+# schedule in your report, explain it with a reason.
+
+[Unit]
+Description=Run the KisanMandi ingest nightly at 18:30 IST
+Documentation=https://github.com/YOUR-USERNAME/kisanmandi
+
+[Timer]
+# 18:30 IST = 13:00 UTC. Times in systemd timers are in the *system* timezone
+# unless you suffix them, so we suffix them. Check with: timedatectl
+OnCalendar=*-*-* 13:00:00 UTC
+
+# If the VM was off at 13:00, run as soon as it comes back. Without this, a
+# reboot at 12:59 silently costs you an entire day of data.
+Persistent=true
+
+# Spread load across the hour so you are not hitting data.gov.in at exactly the
+# same second as every other developer in the country.
+RandomizedDelaySec=300
+
+# Don't stack up missed runs.
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
