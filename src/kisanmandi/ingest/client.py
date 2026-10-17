@@ -33,6 +33,12 @@ log = logging.getLogger(__name__)
 
 RETRYABLE_STATUS = {408, 425, 429, 500, 502, 503, 504}
 
+# Official data.gov.in sample key shown on every public API catalogue page;
+# capped at 10 records per request and intended only for initial smoke testing.
+PUBLIC_DEMO_API_KEY = (
+    "579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b"  # gitleaks:allow
+)
+
 
 class AgmarknetError(RuntimeError):
     """Raised when the upstream API cannot be read after all retries."""
@@ -112,6 +118,7 @@ class AgmarknetClient:
             timeout=timeout, headers={"User-Agent": "kisanmandi/0.1 (+student project)"}
         )
         if not self.api_key:
+            self.api_key = PUBLIC_DEMO_API_KEY
             log.warning(
                 "DATA_GOV_API_KEY is empty - falling back to the public demo key. "
                 "Responses will be capped at 10 records/request. "

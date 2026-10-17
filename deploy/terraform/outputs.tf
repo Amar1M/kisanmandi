@@ -46,7 +46,7 @@ output "next_steps" {
          https://data.gov.in/user/register
 
     4. Clone the project and configure it:
-         git clone https://github.com/YOUR-USERNAME/kisanmandi.git
+         git clone https://github.com/Amar1M/kisanmandi.git
          cd kisanmandi && cp .env.example .env && nano .env   # add your API key
          chmod 600 .env
 

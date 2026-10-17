@@ -10,7 +10,7 @@ import httpx
 import pytest
 import respx
 
-from kisanmandi.ingest.client import AgmarknetClient, AgmarknetError
+from kisanmandi.ingest.client import PUBLIC_DEMO_API_KEY, AgmarknetClient, AgmarknetError
 
 
 def make_client(**kwargs) -> AgmarknetClient:
@@ -216,3 +216,12 @@ class TestRequestBuilding:
             client.fetch_all({"state": "Karnataka", "district": ""})
         keys = {k for k, _ in route.calls[0].request.url.params.multi_items()}
         assert "filters[district]" not in keys
+
+    @respx.mock
+    def test_empty_api_key_falls_back_to_public_demo_key(self, page_payload):
+        route = respx.get(url__startswith="https://api.data.gov.in/resource/").mock(
+            return_value=httpx.Response(200, json=page_payload)
+        )
+        with make_client(api_key="", page_size=100) as client:
+            client.fetch_all()
+        assert route.calls[0].request.url.params["api-key"] == PUBLIC_DEMO_API_KEY

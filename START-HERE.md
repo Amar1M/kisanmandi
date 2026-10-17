@@ -290,12 +290,12 @@ Go to <https://github.com/new>, name it **`kisanmandi`**, choose **Public**.
 ### 5.2 Push
 
 ```powershell
-git remote set-url origin https://github.com/YOUR-USERNAME/kisanmandi.git
+git remote set-url origin https://github.com/Amar1M/kisanmandi.git
 git branch -M main
 git push -u origin main
 ```
 
-Replace `YOUR-USERNAME` with your actual GitHub username.
+Replace `Amar1M` with your actual GitHub username.
 
 If it asks for a password, use a **Personal Access Token** — not your account
 password. Create one at: GitHub → Settings → Developer settings →

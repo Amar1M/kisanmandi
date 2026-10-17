@@ -262,7 +262,7 @@ sudo apt install -y \
 
 ```bash
 git config --global user.name "Amarnath Reddy"
-git config --global user.email "your-email@example.com"
+git config --global user.email "1970.sugnandareddy@gmail.com"
 git config --global init.defaultBranch main
 ```
 
@@ -359,7 +359,7 @@ cd kisanmandi
 
 ```bash
 cd ~/projects
-git clone https://github.com/YOUR-USERNAME/kisanmandi.git
+git clone https://github.com/Amar1M/kisanmandi.git
 cd kisanmandi
 ```
 

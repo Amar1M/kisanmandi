@@ -43,6 +43,26 @@ class TestHealth:
         assert body["counts"]["mandi_prices"] == 80
 
 
+class TestDashboardAndInfo:
+    def test_root_renders_live_html_dashboard(self, api):
+        response = api.get("/")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "KisanMandi" in response.text
+        assert "Amar M S" in response.text
+        assert "S-VYASA Bengaluru" in response.text
+        assert "80" in response.text  # seeded mandi_prices count
+
+    def test_api_info_returns_app_pipeline_and_system_metadata(self, api):
+        response = api.get("/api/info")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["app"]["name"] == "kisanmandi"
+        assert body["pipeline"]["counts"]["mandi_prices"] == 80
+        assert "python_version" in body["system"]
+        assert any(ep["path"] == "/v1/advice" for ep in body["endpoints"])
+
+
 class TestPrices:
     def test_returns_seeded_records(self, api):
         response = api.get("/v1/prices", params={"commodity": "Tomato", "days": 365})

@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Run the KisanMandi ingest nightly at 18:30 IST
-Documentation=https://github.com/YOUR-USERNAME/kisanmandi
+Documentation=https://github.com/Amar1M/kisanmandi
 
 [Timer]
 # 18:30 IST = 13:00 UTC. Times in systemd timers are in the *system* timezone

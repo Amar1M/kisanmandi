@@ -9,7 +9,7 @@ description = "Mandi price intelligence for Indian farmers — ingest, validate,
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "Amarnath Reddy" }]
+authors = [{ name = "Amarnath Reddy", email = "1970.sugnandareddy@gmail.com" }]
 keywords = ["agriculture", "agmarknet", "data-engineering", "devops", "india"]
 
 dependencies = [

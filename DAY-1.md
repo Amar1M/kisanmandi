@@ -61,7 +61,7 @@ Copy the key — you'll paste it in step 5.
 ## ✅ Step 4 — Get the project running locally (30 minutes)
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/kisanmandi.git
+git clone https://github.com/Amar1M/kisanmandi.git
 cd kisanmandi
 
 python3 -m venv .venv

@@ -127,7 +127,7 @@ SQL
 ```
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/kisanmandi.git
+git clone https://github.com/Amar1M/kisanmandi.git
 cd kisanmandi
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .

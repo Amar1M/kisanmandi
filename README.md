@@ -2,7 +2,7 @@
 
 **Mandi price intelligence for Indian farmers — ingest, validate, forecast, advise.**
 
-[![CI](https://github.com/YOUR-USERNAME/kisanmandi/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![CI](https://github.com/Amar1M/kisanmandi/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![Tests](https://img.shields.io/badge/tests-125%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen)
@@ -101,7 +101,7 @@ which is the only kind of advice worth giving.
 Five commands. No API key needed to run the tests.
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/kisanmandi.git
+git clone https://github.com/Amar1M/kisanmandi.git
 cd kisanmandi
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"

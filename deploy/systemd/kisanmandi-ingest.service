@@ -12,7 +12,7 @@
 
 [Unit]
 Description=KisanMandi daily mandi price ingest
-Documentation=https://github.com/YOUR-USERNAME/kisanmandi
+Documentation=https://github.com/Amar1M/kisanmandi
 After=network-online.target postgresql.service
 Wants=network-online.target
 
