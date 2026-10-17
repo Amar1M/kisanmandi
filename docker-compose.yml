@@ -27,7 +27,7 @@ services:
   api:
     build: .
     image: kisanmandi:local
-    command: kisanmandi serve --host 0.0.0.0 --port 8000
+    command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
     environment:
       DATABASE_URL: postgresql+psycopg://kisanmandi:localdev@db:5432/kisanmandi
       DATA_DIR: /app/data
@@ -51,7 +51,7 @@ services:
     build: .
     image: kisanmandi:local
     profiles: ["jobs"]
-    command: kisanmandi ingest
+    command: ["ingest"]
     environment:
       DATABASE_URL: postgresql+psycopg://kisanmandi:localdev@db:5432/kisanmandi
       DATA_DIR: /app/data

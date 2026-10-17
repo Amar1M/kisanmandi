@@ -120,5 +120,5 @@ jobs:
 
       - name: Smoke-test the image
         run: |
-          docker run --rm kisanmandi:ci kisanmandi --version
-          docker run --rm kisanmandi:ci kisanmandi stats || true
+          docker run --rm kisanmandi:ci --version
+          docker run --rm kisanmandi:ci stats || true

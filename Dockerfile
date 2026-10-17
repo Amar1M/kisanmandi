@@ -26,7 +26,7 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --upgrade pip \
-    && /opt/venv/bin/pip install "."
+    && /opt/venv/bin/pip install ".[postgres,s3]"
 
 # ---------- runtime ----------
 FROM python:3.12-slim AS runtime
