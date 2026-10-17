@@ -86,7 +86,7 @@ def _render_dashboard(info: dict) -> str:
     py_label = html.escape(str(sys_meta["python_version"]))
     ts_label = html.escape(str(sys_meta["timestamp"])[:19])
     prices_n = counts.get("mandi_prices", 0)
-    quar_n = counts.get("quarantined_rows", 0)
+    quar_n = counts.get("quarantined_prices", 0)
     runs_n = counts.get("ingest_runs", 0)
 
     return f"""<!DOCTYPE html>
