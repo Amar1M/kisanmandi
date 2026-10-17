@@ -9,6 +9,41 @@ It also matches Oracle Cloud, where your VM runs Ubuntu 24.04.
 
 ---
 
+# ⭐ ALREADY HAVE UBUNTU? Start here
+
+You can skip sections 1–4 entirely. Run the environment check instead — it detects
+your setup and tells you exactly what's missing:
+
+```bash
+cd ~/projects/kisanmandi          # wherever you unpacked the project
+chmod +x scripts/check-env.sh
+./scripts/check-env.sh
+```
+
+It reads your system and reports **passed / warnings / blockers** with the exact
+fix for each. It installs nothing and changes nothing — safe to run as often as you like.
+
+Then jump straight to **section 8** to run the project.
+
+## What the script checks
+
+| # | Check | Why it matters |
+|---|---|---|
+| 1 | Distro, WSL vs native, architecture | Determines which advice applies |
+| 2 | Project location | Catches the `/mnt/c` trap before it wastes an hour |
+| 3 | CPU, RAM, disk | Needs ~4 GB free RAM and ~3 GB disk |
+| 4 | Python 3.10–3.14, venv, pip, git, make, curl, jq | Everything the build needs |
+| 5 | systemd as PID 1 | **Required in week 4** for the nightly timer |
+| 6 | Docker installed, daemon reachable **without sudo** | Required in week 6 |
+| 7 | Can you reach `api.data.gov.in`, PyPI, GitHub? | Catches proxies and DNS problems |
+| 8 | Ports 8000 and 5432 free | So `make serve` and `docker compose` don't collide |
+| 9 | `.venv`, `.env`, API key present, file permissions | Project-specific readiness |
+
+**Exit code 0 = you're ready.** Exit code 1 = read the blockers at the bottom.
+Exit code 2 = the script itself can't run (install `gawk`).
+
+---
+
 # 1. Which kind of Linux? (read this first)
 
 You have Windows 11 Home on an Acer Aspire A324-53. Three options:
@@ -529,44 +564,63 @@ translation layer between practice and production.
 
 ---
 
-# ✅ Linux setup checklist
+# ✅ Setup checklist
+
+Run `./scripts/check-env.sh` and it fills most of this in for you.
+
+**If you already have Ubuntu (native or WSL):**
+
+- [ ] `./scripts/check-env.sh` exits with **0**
+- [ ] Project is in `~/projects/kisanmandi` **(not `/mnt/c/`)**
+- [ ] `ps -p 1 -o comm=` prints **`systemd`** (else: section 4)
+- [ ] `make test` → **125 passed**
+
+**If you're installing WSL from scratch, also:**
 
 - [ ] WSL2 installed, `uname -r` shows WSL2
 - [ ] `.wslconfig` created with `memory=9GB`, `autoMemoryReclaim=gradual`, `sparseVhd=true`
 - [ ] **No** `networkingMode=mirrored` (it breaks Docker and k8s)
-- [ ] `ps -p 1 -o comm=` prints **`systemd`**
 - [ ] `build-essential`, `git`, `make`, `python3-venv`, `jq` installed
 - [ ] `docker run --rm hello-world` succeeds without sudo
-- [ ] Project cloned to **`~/projects/kisanmandi`** (not `/mnt/c/`)
-- [ ] `make test` → **125 passed**
 - [ ] VS Code connected via **WSL: Ubuntu-24.04**
-- [ ] `make help` lists all 35 targets
 
 ---
 
 # Your actual next commands
 
+### If you already have Ubuntu
+
 ```bash
-# 1. Set up the workspace (Ubuntu terminal)
+# 1. Put the project in your Linux home (NOT /mnt/c)
 mkdir -p ~/projects && cd ~/projects
-cp "/mnt/c/Users/Amar Reddy/Downloads/kisanmandi.zip" .
+cp ~/Downloads/kisanmandi.zip . 2>/dev/null || \
+  cp "/mnt/c/Users/Amar Reddy/Downloads/kisanmandi.zip" .
 unzip -q kisanmandi.zip
 cd kisanmandi
 
-# 2. Make it run
+# 2. Check what your machine needs
+chmod +x scripts/check-env.sh
+./scripts/check-env.sh
+
+# 3. Make it run
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 
-# 3. 🏆
+# 4. 🏆
 make test
 ```
+
+### If you're installing WSL from scratch
+
+Do sections 1–7 first, then the same steps above.
+
+---
 
 **Come back when you see `125 passed`** and tell me:
 
 1. Did it pass?
-2. Did `ps -p 1 -o comm=` print `systemd`?
-3. Did `docker run --rm hello-world` work?
+2. What did `./scripts/check-env.sh` say — any **blockers** in red?
+3. Did `ps -p 1 -o comm=` print `systemd`?
 
-Then we do the Oracle VM request, the Student Pack, and your first real pull of
-Karnataka mandi prices.
+Then we request the Oracle VM, and pull your first real Karnataka mandi prices.
