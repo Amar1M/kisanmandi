@@ -179,6 +179,45 @@ observations per commodity per market.
 
 ---
 
+## ADR-009: Pin dependency *ranges* for compiled packages, not exact versions
+
+**Date:** 2026-10-15 · **Status:** Accepted
+
+**Context.** `requirements.txt` originally pinned `psycopg[binary]==3.2.3`.
+
+Compiled packages ship **prebuilt wheels per Python version** — there is a
+separate wheel for 3.10, 3.11, 3.12 and so on. `psycopg-binary 3.2.3` has wheels
+for cp310–cp313 but **not cp314**.
+
+The development machine runs Python 3.14. Installing the pinned file therefore
+failed outright:
+
+```
+ERROR: Could not find a version that satisfies the requirement psycopg-binary==3.2.3
+```
+
+**Decision.** Pin exactly only for **pure-Python** packages, where a pin is free.
+For packages with compiled extensions, specify a **lower bound**
+(`psycopg[binary]>=3.2.4`) and let pip select the wheel matching the interpreter.
+
+**Consequences.**
+- ✅ Installs cleanly on 3.10 through 3.14 — verified on 3.13 and 3.14 locally
+- ✅ No C toolchain needed on Windows (a source build of psycopg is a bad first
+  experience, and would likely have ended the project on day 1)
+- ✅ Reproducibility is preserved by `requirements.txt` for pure-Python packages
+  and by `pip freeze > requirements.lock.txt` when an exact snapshot is needed
+- ⚠️ A range means two developers could get different patch versions. Accepted:
+  `requirements.lock.txt` exists for the rare case where byte-identical
+  environments matter.
+- ⚠️ The lower bound must be chosen deliberately (3.2.4 is the first release with
+  cp314 wheels) — an arbitrary floor would just move the problem.
+
+**Lesson worth keeping.** "It works on my machine" is not a claim, it is a
+hypothesis. The fix here was to test on the interpreter the user actually runs,
+and to add 3.14 to the CI matrix so the claim stays verified.
+
+---
+
 ## Template for new entries
 
 ```markdown

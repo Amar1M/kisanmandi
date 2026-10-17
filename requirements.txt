@@ -11,7 +11,12 @@ python-dotenv==1.0.1
 
 # --- storage ---
 SQLAlchemy==2.1.4
-psycopg[binary]==3.2.3        # Postgres driver (only needed when you point at Oracle/Neon)
+# Postgres driver (only needed when you point at Oracle/Neon).
+# NOTE ON THE RANGE, NOT A PIN: psycopg-binary ships prebuilt wheels per Python
+# version, and 3.2.3 has no cp314 wheel. Pinning it exactly breaks the install on
+# Python 3.14. Letting pip choose gets a wheel for whichever Python you run, and
+# avoids compiling psycopg from source (which needs a C toolchain on Windows).
+psycopg[binary]>=3.2.4
 
 # --- api ---
 fastapi==0.143.2

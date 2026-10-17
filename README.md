@@ -3,7 +3,7 @@
 **Mandi price intelligence for Indian farmers — ingest, validate, forecast, advise.**
 
 [![CI](https://github.com/YOUR-USERNAME/kisanmandi/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
+![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![Tests](https://img.shields.io/badge/tests-125%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen)
 ![Cost](https://img.shields.io/badge/infrastructure%20cost-%E2%82%B90%2Fmonth-success)
