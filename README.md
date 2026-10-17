@@ -109,6 +109,13 @@ pip install -e ".[dev]"
 make test          # 125 tests, 91% coverage, no network calls
 ```
 
+**New to this? Start with the setup guide for your platform:**
+
+| Platform | Guide | Notes |
+|---|---|---|
+| **Ubuntu / WSL2** ⭐ | [LINUX-SETUP.md](LINUX-SETUP.md) | Recommended — `make` works, native Docker, systemd |
+| **Windows** | [START-HERE.md](START-HERE.md) | Works, but you translate `make` into `python -m` commands |
+
 To pull real data:
 
 ```bash

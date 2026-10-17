@@ -1,8 +1,13 @@
-# START HERE — Day 1 on your Windows laptop
+# START HERE — Day 1
 
 **Goal for today: see `125 passed` in your terminal.**
 
 That's it. One green line. Everything else follows from there.
+
+> ## 🐧 Are you using Ubuntu / WSL2?
+> **Use [LINUX-SETUP.md](LINUX-SETUP.md) instead of this file.** On Linux, every
+> `make` command in the docs works as written, Docker runs natively, and systemd
+> works — so there's no translation layer. This file is the Windows-native path.
 
 Total time: **30–40 minutes.** Every command below is copy-paste ready.
 
