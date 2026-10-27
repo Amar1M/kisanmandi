@@ -132,6 +132,20 @@ make serve                       # API docs at http://localhost:8000/docs
 
 `make help` lists everything.
 
+### Farmer price screen (local prototype)
+
+After `make serve`, open **http://localhost:8000/farmers**. Choose a state,
+then district and crop from the observations already stored in your database.
+For each market, variety and grade, the page shows the latest stored modal price
+and its reporting date. Enter your own estimated transport cost per quintal to
+see the price minus that cost; your input stays in the browser.
+
+These are reported observations, **not guaranteed current offers**. Compare
+matching dates, varieties and grades, and confirm the price with the mandi.
+The transport calculation excludes other fees and losses. Missing, old or
+incomplete source data must not be treated as advice to sell or hold. The screen
+does not automatically collect data or update another machine's database.
+
 ---
 
 ## Results

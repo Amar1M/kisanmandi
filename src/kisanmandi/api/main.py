@@ -29,6 +29,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from kisanmandi import __version__
 from kisanmandi.advise import AdvisoryEngine
+from kisanmandi.api.farmer_prices import create_farmer_router
 from kisanmandi.config import Settings, get_settings
 from kisanmandi.forecast import build_series
 from kisanmandi.storage.db import (
@@ -168,10 +169,13 @@ def _render_dashboard(info: dict) -> str:
       <h1>🌾 KisanMandi — Mandi Price Intelligence</h1>
       <p>Agmarknet API &rarr; SHA-256 Raw Landing &rarr; Quality Gate &rarr; Walk-Forward Forecast &rarr; Farmer Advisory</p>
       <div style="margin-top: 14px;">
-        <span class="badge live">● LIVE PIPELINE</span>
+        <span class="badge">PROJECT DASHBOARD</span>
         <span class="badge">v{html.escape(__version__)}</span>
         <span class="badge">DB: {db_label}</span>
         <span class="badge">Commit: {commit_short}</span>
+      </div>
+      <div style="margin-top: 16px;">
+        <a href="/farmers" style="display:inline-block;padding:10px 18px;border-radius:9px;background:#b8ed8b;color:#10281a;font-weight:700;text-decoration:none;">🌾 Compare mandi prices →</a>
       </div>
     </header>
 
@@ -303,6 +307,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     engine = get_engine(settings.database_url)
     init_db(engine)
     session_factory = make_session_factory(engine)
+    app.include_router(create_farmer_router(session_factory, staleness_days=settings.staleness_days))
 
     engine_advisory = AdvisoryEngine(
         horizon_days=settings.forecast_horizon_days,
@@ -340,7 +345,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
             "endpoints": [
-                {"method": "GET", "path": "/", "description": "Live pipeline dashboard"},
+                {"method": "GET", "path": "/", "description": "Pipeline dashboard"},
+                {"method": "GET", "path": "/farmers", "description": "Farmer price comparison"},
                 {"method": "GET", "path": "/docs", "description": "Interactive Swagger UI"},
                 {"method": "GET", "path": "/health", "description": "Liveness + row counts"},
                 {"method": "GET", "path": "/api/info", "description": "System & pipeline info"},

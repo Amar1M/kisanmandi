@@ -6,6 +6,9 @@ fast, deterministic, and safe to run in CI on every push.
 
 from __future__ import annotations
 
+import logging
+import traceback
+
 import httpx
 import pytest
 import respx
@@ -66,6 +69,33 @@ class TestSinglePage:
 
 class TestPagination:
     @respx.mock
+    def test_short_capped_page_continues_when_total_is_larger(self):
+        # The demo key can return fewer records than the requested page size.
+        route = respx.get(url__startswith="https://api.data.gov.in/resource/").mock(
+            side_effect=[
+                httpx.Response(200, json=page([rec("A", "14/10/2026"), rec("B", "14/10/2026")], 3)),
+                httpx.Response(200, json=page([rec("C", "14/10/2026")], 3)),
+            ]
+        )
+        with make_client(api_key="", page_size=1000) as client:
+            result = client.fetch_all(max_pages=2)
+        assert result.stats.records == 3
+        assert [call.request.url.params["offset"] for call in route.calls] == ["0", "2"]
+
+    @respx.mock
+    def test_unknown_total_stops_at_empty_page(self):
+        route = respx.get(url__startswith="https://api.data.gov.in/resource/").mock(
+            side_effect=[
+                httpx.Response(200, json={"status": "ok", "records": [rec("A", "14/10/2026")]}),
+                httpx.Response(200, json={"status": "ok", "records": []}),
+            ]
+        )
+        with make_client(page_size=1000) as client:
+            result = client.fetch_all(max_pages=3)
+        assert result.stats.records == 1
+        assert route.call_count == 2
+
+    @respx.mock
     def test_walks_pages_until_total_is_reached(self):
         first = page([rec("A", "14/10/2026"), rec("B", "14/10/2026")], total=3)
         second = page([rec("C", "14/10/2026")], total=3)
@@ -96,8 +126,8 @@ class TestPagination:
     def test_offset_advances_between_requests(self):
         route = respx.get(url__startswith="https://api.data.gov.in/resource/").mock(
             side_effect=[
-                httpx.Response(200, json=page([rec("A", "14/10/2026"), rec("B", "14/10/2026")], 4)),
-                httpx.Response(200, json=page([rec("C", "14/10/2026")], 4)),
+                httpx.Response(200, json=page([rec("A", "14/10/2026"), rec("B", "14/10/2026")], 3)),
+                httpx.Response(200, json=page([rec("C", "14/10/2026")], 3)),
             ]
         )
         with make_client(page_size=2) as client:
@@ -161,12 +191,39 @@ class TestRetries:
             client.fetch_all()
 
 
+class TestSecretLogging:
+    @respx.mock
+    def test_cli_logs_and_http_errors_do_not_print_api_key(self, caplog):
+        from kisanmandi.cli import _setup_logging
+
+        key = "dummy-private-key-should-not-be-logged"
+        httpx_logger = logging.getLogger("httpx")
+        httpcore_logger = logging.getLogger("httpcore")
+        old_levels = (httpx_logger.level, httpcore_logger.level)
+        caplog.set_level(logging.DEBUG)
+        respx.get(url__startswith="https://api.data.gov.in/resource/").mock(
+            return_value=httpx.Response(401)
+        )
+        try:
+            _setup_logging(verbose=True)
+            with make_client(api_key=key) as client, pytest.raises(httpx.HTTPStatusError) as exc:
+                client.fetch_all()
+            rendered = "".join(traceback.format_exception(exc.value))
+            assert "HTTP 401 returned by data.gov.in" in str(exc.value)
+            assert key not in rendered
+            assert key not in caplog.text
+            assert "api-key=" not in rendered
+        finally:
+            httpx_logger.setLevel(old_levels[0])
+            httpcore_logger.setLevel(old_levels[1])
+
+
 class TestThrottling:
     @respx.mock
     def test_sleeps_between_requests(self):
         calls: list[float] = []
-        first = page([rec("A", "14/10/2026"), rec("B", "14/10/2026")], total=4)
-        second = page([rec("C", "14/10/2026")], total=4)
+        first = page([rec("A", "14/10/2026"), rec("B", "14/10/2026")], total=3)
+        second = page([rec("C", "14/10/2026")], total=3)
         respx.get(url__startswith="https://api.data.gov.in/resource/").mock(
             side_effect=[httpx.Response(200, json=first), httpx.Response(200, json=second)]
         )

@@ -42,6 +42,10 @@ def _setup_logging(verbose: bool) -> None:
         format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
+    # httpx/httpcore can log request URLs, including the private API-key query
+    # parameter. Keep our own ingest progress logs without exposing the key.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def _session_factory(settings):

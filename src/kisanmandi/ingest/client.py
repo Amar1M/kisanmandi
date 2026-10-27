@@ -181,9 +181,9 @@ class AgmarknetClient:
                     retry_after = response.headers.get("Retry-After")
                     wait = self._backoff_seconds(attempt, retry_after)
                     if attempt == self.max_retries:
+                        # Do not log the response body: upstream errors can echo credentials.
                         raise AgmarknetError(
-                            f"HTTP {response.status_code} after {self.max_retries} retries: "
-                            f"{response.text[:200]}"
+                            f"HTTP {response.status_code} after {self.max_retries} retries"
                         )
                     stats.retries += 1
                     log.warning(
@@ -196,11 +196,20 @@ class AgmarknetClient:
                     self._sleep(wait)
                     continue
 
-                response.raise_for_status()
+                try:
+                    response.raise_for_status()
+                except httpx.HTTPStatusError:
+                    # httpx's default exception text includes the full URL, including api-key.
+                    # Keep the HTTPStatusError contract, but never print that URL in tracebacks.
+                    raise httpx.HTTPStatusError(
+                        f"HTTP {response.status_code} returned by data.gov.in",
+                        request=response.request,
+                        response=response,
+                    ) from None
                 payload = response.json()
 
                 if isinstance(payload, dict) and payload.get("status") not in (None, "ok"):
-                    raise AgmarknetError(f"API returned status={payload.get('status')!r}")
+                    raise AgmarknetError("data.gov.in API returned a non-ok status")
 
                 return payload
 
@@ -227,7 +236,9 @@ class AgmarknetClient:
                 last_error = exc
                 break
 
-        raise AgmarknetError(f"Failed to read Agmarknet after retries: {last_error!r}")
+        # Exception messages can include a request URL; report only the error type.
+        error_type = type(last_error).__name__ if last_error else "unknown error"
+        raise AgmarknetError(f"Failed to read Agmarknet after retries: {error_type}") from None
 
     @staticmethod
     def _build_params(
@@ -303,8 +314,9 @@ class AgmarknetClient:
             yield payload
 
             offset += len(page)
-            if len(page) < self.page_size:
-                break  # a short page means we reached the end
+            # A short page is not necessarily the end: the demo key can cap
+            # responses below the requested limit. Stop at the reported total,
+            # an empty page, or max_pages instead.
             if stats.total_reported is not None and offset >= stats.total_reported:
                 break
         else:
