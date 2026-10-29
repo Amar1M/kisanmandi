@@ -9,10 +9,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
+      - name: Check DNS and proxy presence
+        shell: bash
+        run: |
+          echo 'DNS lookup:'
+          timeout 10s getent ahosts api.data.gov.in || echo 'DNS lookup failed or timed out.'
+          echo 'Proxy variables set (values hidden):'
+          for v in HTTPS_PROXY https_proxy ALL_PROXY all_proxy NO_PROXY no_proxy; do
+            if [ -n "${!v:-}" ]; then echo "$v is set"; fi
+          done
       - name: Make one request without a private key
         shell: bash
         run: |
-          if status=$(curl -q --silent --connect-timeout 10 --max-time 20 \
+          if status=$(curl -q --silent --show-error --connect-timeout 10 --max-time 20 \
             --retry 0 --output /dev/null --write-out '%{http_code}' \
             'https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?format=json&limit=1&filters%5Bstate%5D=Karnataka'); then
             case "$status" in
