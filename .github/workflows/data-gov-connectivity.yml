@@ -1,0 +1,29 @@
+name: Data.gov.in network probe
+
+on: workflow_dispatch
+
+permissions: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Make one request without a private key
+        shell: bash
+        run: |
+          if status=$(curl -q --silent --connect-timeout 10 --max-time 20 \
+            --retry 0 --output /dev/null --write-out '%{http_code}' \
+            'https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?format=json&limit=1&filters%5Bstate%5D=Karnataka'); then
+            case "$status" in
+              [1-5][0-9][0-9])
+                echo "HTTP status: $status"
+                echo 'Response from the endpoint or an intermediary; this does not test a key or ingest data.'
+                ;;
+              *) echo 'No valid HTTP status was returned.'; exit 1 ;;
+            esac
+          else
+            result=$?
+            echo "Network request failed: curl exit code $result"
+            exit 1
+          fi
