@@ -92,6 +92,22 @@ class TestHappyPath:
         assert len(rows) == 3
 
     @respx.mock
+    def test_same_day_ingests_keep_separate_raw_snapshots(self, test_settings, page_payload):
+        respx.get(url__startswith="https://api.data.gov.in/resource/").mock(
+            return_value=httpx.Response(200, json=page_payload)
+        )
+
+        first = run_ingest(test_settings, client=build_client(test_settings))
+        second = run_ingest(test_settings, client=build_client(test_settings))
+
+        assert first.landing_manifest_key != second.landing_manifest_key
+        pages = sorted(test_settings.landing_local_dir.rglob("page-*.json"))
+        manifests = sorted(test_settings.landing_local_dir.rglob("manifest.json"))
+        assert len(pages) == 2
+        assert len(manifests) == 2
+        assert pages[0].read_bytes() == pages[1].read_bytes()
+
+    @respx.mock
     def test_each_run_is_recorded(self, test_settings, page_payload):
         respx.get(url__startswith="https://api.data.gov.in/resource/").mock(
             return_value=httpx.Response(200, json=page_payload)

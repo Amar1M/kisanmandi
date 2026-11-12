@@ -1,16 +1,10 @@
-"""Immutable raw landing zone.
+"""Run-scoped raw landing zone.
 
-The rule: **never transform data you haven't first stored raw.**
-
-Every ingest writes the untouched API response to a dated, Hive-partitioned path
-and records a SHA-256 checksum in a manifest. That gives you three things:
-
-1. **Replay** — if your transform has a bug, re-run it over history without
-   re-hitting the upstream API (which is rate limited and occasionally down).
-2. **Tamper evidence** — the checksum proves the raw bytes haven't changed.
-3. **Cheap migration** — the `source=/ingest_date=` layout is exactly what
-   Athena/Glue expects, so pointing a query engine at it later is a config
-   change, not a rewrite.
+The rule: **never transform data you haven't first stored raw.** Each writer
+gets a unique run ID, so repeated ingests on the same date land in separate
+Hive-partitioned paths instead of replacing the previous page and manifest.
+SHA-256 checksums detect content changes when verified; they are not, by
+themselves, access control or a guarantee against a privileged rewrite.
 
 Backends: `local` (default, ₹0, fine for development) and `s3` (Cloudflare R2,
 10 GB free with zero egress fees — see COSTS.md).
@@ -21,19 +15,21 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Protocol
+from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
 
-def _partition_key(source: str, ingest_date: date, page_index: int) -> str:
-    """Hive-style key: raw/source=agmarknet/ingest_date=2026-10-15/page-0000.json"""
+def _partition_key(source: str, ingest_date: date, run_id: str, page_index: int) -> str:
+    """Run-scoped Hive key, unique even when a date is ingested more than once."""
     return (
         f"raw/source={source}/ingest_date={ingest_date.isoformat()}/"
-        f"page-{page_index:04d}.json"
+        f"run_id={run_id}/page-{page_index:04d}.json"
     )
 
 
@@ -76,12 +72,23 @@ class LocalLandingZone:
         return self.root / safe
 
     def put(self, key: str, payload: bytes) -> None:
+        """Atomically create a new object; never replace an existing raw file."""
         path = self._path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
-        # Write-then-rename so a crash never leaves a half-written "immutable" file.
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_bytes(payload)
-        tmp.replace(path)
+        # Stage beside the target, then hard-link atomically. Unlike replace(),
+        # link creation fails if the final name already exists.
+        tmp = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+        try:
+            with tmp.open("xb") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            try:
+                os.link(tmp, path)
+            except FileExistsError:
+                raise FileExistsError(f"landing key already exists: {key}") from None
+        finally:
+            tmp.unlink(missing_ok=True)
 
     def get(self, key: str) -> bytes:
         return self._path(key).read_bytes()
@@ -93,7 +100,9 @@ class LocalLandingZone:
         base = self._path(prefix) if prefix else self.root
         if not base.exists():
             return []
-        return sorted(str(p.relative_to(self.root)).replace("\\", "/") for p in base.rglob("*.json"))
+        return sorted(
+            str(p.relative_to(self.root)).replace("\\", "/") for p in base.rglob("*.json")
+        )
 
 
 class S3LandingZone:
@@ -160,10 +169,13 @@ def get_landing_zone(settings) -> LocalLandingZone | S3LandingZone:
 
 @dataclass
 class LandingWriter:
-    """Writes raw payloads plus a checksummed manifest for the run."""
+    """Writes raw pages under a unique run ID plus a checksummed manifest."""
 
     zone: LandingZone
     source: str = "agmarknet"
+    run_id: str = field(default_factory=lambda: uuid4().hex, init=False)
+    _written_pages: set[int] = field(default_factory=set, init=False, repr=False)
+    _manifest_written: bool = field(default=False, init=False, repr=False)
 
     def write_page(
         self,
@@ -172,10 +184,15 @@ class LandingWriter:
         ingest_date: date | None = None,
         page_index: int = 0,
     ) -> LandingManifestEntry:
+        if page_index < 0:
+            raise ValueError("page_index must be non-negative")
+        if page_index in self._written_pages:
+            raise FileExistsError(f"page {page_index} was already written for run {self.run_id}")
         ingest_date = ingest_date or datetime.now(timezone.utc).date()
         body = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
-        key = _partition_key(self.source, ingest_date, page_index)
+        key = _partition_key(self.source, ingest_date, self.run_id, page_index)
         self.zone.put(key, body)
+        self._written_pages.add(page_index)
         entry = LandingManifestEntry(
             key=key,
             sha256=hashlib.sha256(body).hexdigest(),
@@ -193,13 +210,19 @@ class LandingWriter:
         ingest_date: date | None = None,
         extra: dict | None = None,
     ) -> str:
-        """The manifest is what makes the landing zone auditable."""
+        """Write one create-only manifest for this run."""
+        if self._manifest_written:
+            raise FileExistsError(f"manifest was already written for run {self.run_id}")
         ingest_date = ingest_date or datetime.now(timezone.utc).date()
-        key = f"manifests/source={self.source}/ingest_date={ingest_date.isoformat()}/manifest.json"
+        key = (
+            f"manifests/source={self.source}/ingest_date={ingest_date.isoformat()}/"
+            f"run_id={self.run_id}/manifest.json"
+        )
         body = json.dumps(
             {
                 "source": self.source,
                 "ingest_date": ingest_date.isoformat(),
+                "run_id": self.run_id,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "page_count": len(entries),
                 "total_bytes": sum(e.bytes for e in entries),
@@ -211,15 +234,15 @@ class LandingWriter:
             sort_keys=True,
         ).encode("utf-8")
         self.zone.put(key, body)
+        self._manifest_written = True
         return key
 
     @staticmethod
     def verify(zone: LandingZone, key: str, expected_sha256: str) -> bool:
-        """Recompute the checksum of a stored page.
+        """Recompute a stored page checksum; this detects changes when rechecked.
 
-        Call this in your weekly integrity job. If it ever returns False, someone
-        mutated your raw data — which is exactly the thing an immutable landing
-        zone exists to detect.
+        A checksum alone is not access control and cannot prevent a privileged
+        storage writer from replacing both the object and its manifest.
         """
         actual = hashlib.sha256(zone.get(key)).hexdigest()
         return actual == expected_sha256
