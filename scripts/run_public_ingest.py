@@ -17,6 +17,10 @@ from kisanmandi.pipeline import run_ingest
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    # httpx INFO request logs include the full URL, including data.gov.in's
+    # api-key query parameter. Suppress those loggers before any request.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     settings = Settings()
     if not settings.data_gov_api_key:
         raise SystemExit("DATA_GOV_API_KEY is required; refusing the shared demo key.")
