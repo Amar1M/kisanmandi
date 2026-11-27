@@ -1,33 +1,56 @@
-# Public release and daily Karnataka ingest
+# Public release and WSL daily refresh
 
-This release uses GitHub Pages plus GitHub Actions, avoiding a new cloud account, a custom domain, and card verification. It publishes a **static, read-only farmer price guide** at:
+This setup uses GitHub Pages for the public site and the existing WSL laptop for data.gov.in ingestion. It avoids an always-on cloud account, a new cloud account, card verification, and a custom domain. The live URL is:
 
 `https://amar1m.github.io/kisanmandi/`
 
-It does not publish the FastAPI dashboard, interactive API, Prometheus metrics, host diagnostics, quarantined-row details, or any credentials. The Actions runner performs a bounded Karnataka ingest, applies the existing quality gate, and only then exports the public price snapshot. If the ingest is empty, truncated, or fails its checks, the workflow fails before replacing the last published site.
+GitHub Actions **only deploys committed static files** from `public/`; it does not call data.gov.in. WSL runs the existing bounded ingest and quality gate, updates the local SQLite database and raw landing zone, exports the static site, then commits/pushes only `public/index.html` and `public/prices.json`. A push of those files triggers the Pages deployment; data-only snapshot commits are excluded from the full CI matrix to avoid rebuilding the application every day.
 
-## One-time GitHub setup
+## One-time setup
 
-1. In the repository, open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**.
-2. Open **Settings → Secrets and variables → Actions → New repository secret**.
-   - Name: `DATA_GOV_API_KEY`
-   - Value: your personal data.gov.in API key
-   - Enter it directly in GitHub. Never paste it into chat, a commit, or workflow logs.
-3. Add the workflow and scripts from this release to the repository's default branch (`main`). Do not add the key to `.env.example`, YAML, or any tracked file.
-4. In **Actions**, select **Publish Karnataka price guide → Run workflow** for the first run. Confirm the job completes and open its Pages URL.
+1. Keep GitHub Pages **Settings → Pages → Source** set to **GitHub Actions**.
+2. Confirm your personal `DATA_GOV_API_KEY` is still in the ignored local `.env`. The script will fail before network access if it is absent. Never put the key in a tracked file or share it in chat.
+3. Replace `.github/workflows/publish-pages.yml` with the static-only workflow in this bundle and add `scripts/update_public_site.sh`.
+4. Publish the data already in your local database without making a new API request:
 
-The workflow refuses to run with an empty key rather than silently using the shared demo key. It does not run on pull requests. Permissions are limited to reading repository contents and publishing Pages.
+   ```bash
+   cd /home/amarnavya/projects/kisanmandi
+   source .venv/bin/activate
+   python scripts/export_static_site.py --output-dir public
+   python -m json.tool public/prices.json | head -30
+   git add .github/workflows/publish-pages.yml scripts/update_public_site.sh PUBLISH-GITHUB-PAGES.md public/index.html public/prices.json
+   git commit -m "Publish static Karnataka price guide"
+   git push origin main
+   ```
 
-## Daily schedule and limits
+   This initial commit triggers Pages. Confirm the deployment is green and open the Pages URL. The JSON contains public mandi price observations only; it does not contain credentials or host diagnostics.
 
-- Scheduled for **13:00 UTC / 18:30 IST** each day. GitHub may start scheduled jobs late; a daily workflow is not a guaranteed-to-the-minute service.
-- Ingest scope: **Karnataka only**, consistent with the verified local demo.
-- Maximum 10 pages × 1,000 records, with at least one second between API requests and at most two retries per request.
-- If the feed reports more data than the run fetched, or no trustworthy total is available at the page cap, publication is blocked rather than silently showing a partial snapshot.
-- No other ingestion schedule is enabled. The existing systemd timer remains off.
+5. After confirming the local `.env` contains the key and the static-only workflow is pushed, remove the now-unused `DATA_GOV_API_KEY` repository secret from GitHub Settings. The daily workflow reads the key only from the local ignored `.env`.
 
-## Important scope and persistence limits
+## Schedule daily refresh from Windows Task Scheduler
 
-GitHub Pages serves a **static snapshot**, not an always-on Python server. The farmer guide updates only after a successful scheduled run. If a run fails, the previous published snapshot remains. The run's SQLite database and raw landing files live only on that temporary Actions runner; they are not a durable cloud database and do not accumulate an online SQL history. Keep local raw data and your local database backed up separately. Long-term backend persistence would need an approved persistent storage service or VM.
+The WSL machine must have internet access and be awake at the scheduled time. The local database and raw landing files persist in WSL, so history accumulates locally. If the machine is off, no cloud ingest happens; you can configure Task Scheduler to run the missed task when the machine next starts.
 
-Price rows are public Agmarknet observations. Every result shows its report date and a stale-data warning; values are not guaranteed offers or personal financial advice. The site intentionally exposes no private system metadata or unauthenticated API endpoints.
+1. Open **Task Scheduler** in Windows and choose **Create Basic Task**.
+2. Name it `KisanMandi daily refresh`; choose a **Daily** trigger at **18:30** local time.
+3. For the action, choose **Start a program**:
+   - Program: `C:\Windows\System32\wsl.exe`
+   - Arguments: `--user amarnavya --exec bash -lc "/home/amarnavya/projects/kisanmandi/scripts/update_public_site.sh"`
+4. In task properties, select **Run only when user is logged on** so the existing WSL Git/SSH authentication can be used. Enable **Run task as soon as possible after a scheduled start is missed**. If available and appropriate, enable waking the computer to run the task.
+5. Test the Git remote from WSL before relying on the schedule:
+
+   ```bash
+   cd /home/amarnavya/projects/kisanmandi
+   GIT_SSH_COMMAND='ssh -o BatchMode=yes' git ls-remote origin HEAD >/dev/null && echo 'GitHub SSH access works non-interactively'
+   ```
+
+   If that fails, do not put a private SSH key or password into the script or Task Scheduler. Resolve WSL Git authentication interactively first.
+
+The script uses a lock to prevent overlaps and refuses to run if the working tree is dirty or the branch is not `main`. It runs the bounded Karnataka ingest, applies the existing quality checks, exports the current database, commits only the generated public files, and pushes them. A failed ingest or push does not trigger a new Pages deployment. The static page keeps the observation date and freshness warning visible.
+
+## Scope and limits
+
+- Pages exposes only a **static, read-only Karnataka price guide**, not the FastAPI dashboard/API, metrics, host diagnostics, or quarantined-row details.
+- The scheduled ingest is **local to WSL**, not cloud-hosted or guaranteed when the laptop is asleep/offline.
+- If the data.gov.in service cannot be reached from the laptop at the scheduled time, the script stops and the last published page remains online.
+- Data.gov.in observations are not guaranteed offers. The site includes a freshness warning and advisory disclaimer.

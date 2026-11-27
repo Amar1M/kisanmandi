@@ -5,8 +5,12 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "public/**"  # daily generated price snapshots use the Pages workflow only
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "public/**"
   workflow_dispatch:
 
 permissions:
