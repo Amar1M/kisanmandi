@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,7 +16,19 @@ from kisanmandi.storage.db import (
     session_scope,
     upsert_prices,
 )
-from scripts.export_static_site import export_site
+
+
+def _load_script(name: str):
+    script = Path(__file__).resolve().parents[1] / "scripts" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, script)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load script at {script}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+export_site = _load_script("export_static_site").export_site
 
 
 def test_export_contains_price_rows_and_no_runtime_diagnostics(
